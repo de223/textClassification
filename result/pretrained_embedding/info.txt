@@ -1,0 +1,3 @@
+Used pre trained google embedding
+1500 training cycles
+Accuracy on whole evaluation: 0.8862

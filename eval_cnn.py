@@ -15,6 +15,8 @@ import sys
 # ==================================================
 
 # Data Parameters
+#tf.flags.DEFINE_string("positive_data_folder", "./dataset_moviereviews/backtrack_eval_reviews/pos", "Data source for the positive data.")
+#tf.flags.DEFINE_string("negative_data_folder", "./dataset_moviereviews/backtrack_eval_reviews/neg", "Data source for the negative data.")
 tf.flags.DEFINE_string("positive_data_folder", "./dataset_moviereviews/aclImdb/test/pos", "Data source for the positive data.")
 tf.flags.DEFINE_string("negative_data_folder", "./dataset_moviereviews/aclImdb/test/neg", "Data source for the negative data.")
 
@@ -86,7 +88,8 @@ def calculate_backtrack_single_conv(iim,v,w):
             for c in range(len(new_iim[0,0])): # classifications
                 for k in range(len(iim[0])): # filter
                     for m in range(min([i+1,len_w])):
-                        new_iim[i,j,c] += iim[i+1-m,k,c]*v[i,j,0]*w[m,j,0,k]
+                        if i-m < len(iim):
+                            new_iim[i,j,c] += iim[i-m,k,c]*v[i,j,0]*w[m,j,0,k]
     return new_iim
 
 def calculate_backtrack_conv(iim,v,w):

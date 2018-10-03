@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import os
+import gc
 import gensim
 import time
 import datetime
@@ -25,8 +26,9 @@ tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (d
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_float("dropout_keep_prob", 1.0, "Dropout keep probability (default: 0.5)")
 tf.flags.DEFINE_float("l2_reg_lambda", 0.0, "L2 regularization lambda (default: 0.0)")
-tf.flags.DEFINE_boolean("input_embedded_data", False, "Specifies if the CNN should get already embedded data")
+tf.flags.DEFINE_boolean("input_embedded_data", True, "Specifies if the CNN should get already embedded data")
 tf.flags.DEFINE_integer("max_input_size", 300, "The size of the preembedded input")
+tf.flags.DEFINE_integer("embedding_size", 300, "The size of the preembedded input")
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 128, "Batch Size (default: 64)")
@@ -54,29 +56,14 @@ def preprocess():
     x_text, y = data_helpers.load_data_and_labels(FLAGS.positive_data_folder, FLAGS.negative_data_folder)
     print("Data loaded.")
 
+    max_document_length = max([len(x.split(" ")) for x in x_text])
+    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
+        
     # Build vocabulary
     if FLAGS.input_embedded_data:
-        print("Embedding data...")
-        allEmbedded = []
-        model = gensim.models.KeyedVectors.load_word2vec_format('C:\\Users\\David\\Documents\\TUHH\\SS18\\Research project\\word2vec-api-master\\GoogleNews-vectors-negative300.bin', binary=True)
-        split_x_text = [[word for word in review.replace(".","").split(" ")] for review in x_text]
-        maxLength = FLAGS.max_input_size
-        embedded = np.zeros([maxLength,300])
-        for n, review in enumerate(split_x_text):
-            for i, word in enumerate(review):
-                try:
-                    #embeddedWord = np.array(model[word])
-                    if i >= maxLength:
-                        break
-                    embedded[i,:] = model[word]
-                except KeyError:
-                    continue
-            allEmbedded.append(np.array(embedded))
-        x = np.array(allEmbedded)
-        print("Data embedded.")
+        x_text = [[word for word in review.replace(".","").split(" ")] for review in x_text]
+        x = np.array(x_text)
     else:
-        max_document_length = max([len(x.split(" ")) for x in x_text])
-        vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
         x = np.array(list(vocab_processor.fit_transform(x_text)))
 
     # Randomly shuffle data
@@ -102,6 +89,12 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
     # ==================================================
 
     with tf.Graph().as_default():
+
+        print("Loading Embedding model...")
+        model = gensim.models.KeyedVectors.load_word2vec_format('./GoogleNews-vectors-negative300.bin', binary=True)
+        print("Embedding model loaded.")
+
+
         session_conf = tf.ConfigProto(
           allow_soft_placement=FLAGS.allow_soft_placement,
           log_device_placement=FLAGS.log_device_placement)
@@ -109,13 +102,14 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
         with sess.as_default():
             if FLAGS.input_embedded_data:
                 cnn = TextCNN(
-                    sequence_length=x_train.shape[1],
+                    sequence_length=FLAGS.max_input_size,
                     num_classes=y_train.shape[1],
                     vocab_size=1, # not needed
-                    embedding_size=FLAGS.embedding_dim,
+                    embedding_size=FLAGS.embedding_size,
                     filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
                     num_filters=FLAGS.num_filters,
-                    l2_reg_lambda=FLAGS.l2_reg_lambda)
+                    l2_reg_lambda=FLAGS.l2_reg_lambda,
+                    input_embedded_data=True)
             else:
                 cnn = TextCNN(
                     sequence_length=x_train.shape[1],
@@ -208,12 +202,27 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                 if writer:
                     writer.add_summary(summaries, step)
 
+            def embedding_step(x_batch):
+                allEmbedded = np.zeros([len(x_batch),FLAGS.max_input_size,300])
+                for n, review in enumerate(x_batch):
+                    for i, word in enumerate(review):
+                        try:
+                            #embeddedWord = np.array(model[word])
+                            if i >= FLAGS.max_input_size:
+                                break
+                            allEmbedded[n,i,:] = model[word]
+                        except KeyError:
+                            continue
+                return allEmbedded
+
+            x_dev = embedding_step(x_dev)
             # Generate batches
             batches = data_helpers.batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
             # Training loop. For each batch...
             for batch in batches:
                 x_batch, y_batch = zip(*batch)
+                x_batch = embedding_step(x_batch)
                 train_step(x_batch, y_batch)
                 current_step = tf.train.global_step(sess, global_step)
                 if current_step % FLAGS.evaluate_every == 0:

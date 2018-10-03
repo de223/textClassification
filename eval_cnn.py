@@ -146,9 +146,10 @@ else:
 
 print("\nEvaluating...\n")
 
-print("Loading Embedding model...")
-model = gensim.models.KeyedVectors.load_word2vec_format('./GoogleNews-vectors-negative300.bin', binary=True)
-print("Embedding model loaded.")
+if FLAGS.input_embedded_data:
+    print("Loading Embedding model...")
+    model = gensim.models.KeyedVectors.load_word2vec_format('./GoogleNews-vectors-negative300.bin', binary=True)
+    print("Embedding model loaded.")
 
 def embedding_step(x_batch):
     allEmbedded = np.zeros([len(x_batch),FLAGS.max_input_size,300])

@@ -265,5 +265,5 @@ with graph.as_default():
             predictions_human_readable = np.column_stack((np.array(x_raw), all_predictions))
             out_path = os.path.join(FLAGS.checkpoint_dir, "..", "prediction.csv")
             print("Saving evaluation to {0}".format(out_path))
-            with open(out_path, 'w') as f:
+            with open(out_path, 'w', newline='') as f:
                 csv.writer(f,delimiter = ';').writerows(predictions_human_readable)

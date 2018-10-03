@@ -81,7 +81,7 @@ def calculate_backtrack_single_conv(iim,v,w):
     print(v.shape)
     print(new_iim.shape)
     print(w.shape)
-    for i in range(100): # words
+    for i in range(len(new_iim)): # words
         for j in range(len(new_iim[0])): # embeddings
             for c in range(len(new_iim[0,0])): # classifications
                 for k in range(len(iim[0])): # filter
@@ -255,6 +255,9 @@ with graph.as_default():
             # Print accuracy if y_test is defined
             if y_test is not None:
                 correct_predictions = float(sum(all_predictions == y_test))
+                wrong_predictions = all_predictions != y_test
+                wrong_prediction_indexes = list(filter(lambda i: wrong_predictions[i]==1,[i for (i,x) in enumerate(wrong_predictions)]))
+                print(str(wrong_prediction_indexes))
                 print("Total number of test examples: {}".format(len(y_test)))
                 print("Accuracy: {:g}".format(correct_predictions/float(len(y_test))))
 

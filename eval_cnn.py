@@ -79,10 +79,6 @@ def calculate_backtrack_single_conv(iim,v,w):
     #print(str(iim[6]))
     new_iim = np.zeros([len(v),len(v[0]),FLAGS.num_class])
     len_w = len(w)
-    print(iim.shape)
-    print(v.shape)
-    print(new_iim.shape)
-    print(w.shape)
     for i in range(len(new_iim)): # words
         for j in range(len(new_iim[0])): # embeddings
             for c in range(len(new_iim[0,0])): # classifications
@@ -212,7 +208,6 @@ with graph.as_default():
                 relu_v = [sess.run(relu_v_tensor ,{input_x: x_test_batch, dropout_keep_prob: 1.0}) for relu_v_tensor in relu_v_tensors]
                 conv_w = [sess.run(conv_w_tensor ,{input_x: x_test_batch, dropout_keep_prob: 1.0}) for conv_w_tensor in conv_w_tensors]
                 iim = [[scores[0,0],0],[0,scores[0,1]]]
-                print(iim)
                 iim = calculate_backtrack_fcl(iim,concat_v[0],output_w)
                 iim,pooling_v = calculate_backtrack_concat(iim,concat_v[0],fnum,n)
                 iim = calculate_backtrack_max_pool(iim,pooling_v,relu_v)
@@ -220,7 +215,6 @@ with graph.as_default():
                 iim = sum(iim)
                 iim = sum_embedding(iim)
                 dim = normalize_matrix(iim)
-                print(str(dim))
 
                 if FLAGS.input_embedded_data:
                     x_text.extend(["" for i in range(FLAGS.max_input_size - len(x_text[0]))])
@@ -267,6 +261,7 @@ with graph.as_default():
 
             # Save the evaluation to a csv
             predictions_human_readable = np.column_stack((np.array(x_raw), all_predictions))
+            predictions_human_readable = predictions_human_readable + ["Accuracy:;"+ str(correct_predictions/float(len(y_test)))]
             out_path = os.path.join(FLAGS.checkpoint_dir, "..", "prediction.csv")
             print("Saving evaluation to {0}".format(out_path))
             with open(out_path, 'w', newline='') as f:

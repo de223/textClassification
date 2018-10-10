@@ -1,0 +1,3 @@
+Learned embedding from the training data
+800 training cycles
+Accuracy on whole evaluation: 0.85848

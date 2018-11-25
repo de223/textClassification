@@ -1,7 +1,7 @@
 import csv
 import math
 
-with open('C:/Users/David/Documents/GitHub/textClassification/result/pretrained_embedding (desktop)/test.csv', 'r') as csvfile:
+with open('./result/pretrained_embedding (desktop)/test.csv', 'r') as csvfile:
     spamreader = csv.reader(csvfile, delimiter=';')
     rows = []
     for row in spamreader:

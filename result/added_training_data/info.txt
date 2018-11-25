@@ -1,0 +1,3 @@
+standard
+training data +4 evaluation reviews
+accuracy: 0.88692

@@ -1,0 +1,13 @@
+NN Structure:
+- pretrained embedding
+- more/less filter
+- increase/decrease filtersize
+
+Training:
+- increase/decrease batchsize
+- increase/decrease size of eval batch
+
+Training data:
+- add wrongly evaluated data to the training
+- reduce the training set
+

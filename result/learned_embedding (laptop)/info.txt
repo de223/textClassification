@@ -1,0 +1,3 @@
+Learned embedding from the training data
+10 epocs
+Accuracy on whole evaluation: 0.87376

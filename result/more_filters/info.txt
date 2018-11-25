@@ -1,0 +1,4 @@
+Used pre trained google embedding
+10 epocs
+256 filters (instead of 128)
+Accuracy on whole evaluation: 0.88616

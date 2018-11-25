@@ -1,0 +1,3 @@
+Used pre trained google embedding
+20 epochs
+Accuracy on whole evaluation: 0.8858

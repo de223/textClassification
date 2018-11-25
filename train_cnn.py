@@ -13,7 +13,7 @@ from tensorflow.contrib import learn
 # ==================================================
 
 # Data loading params
-tf.flags.DEFINE_float("dev_sample_percentage", .01, "Percentage of the training data to use for validation")
+tf.flags.DEFINE_float("dev_sample_percentage", 0.0001, "Percentage of the training data to use for validation")
 tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos", "Data source for the positive data.")
 tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg", "Data source for the negative data.")
 
@@ -32,7 +32,7 @@ tf.flags.DEFINE_integer("embedding_size", 300, "The size of the preembedded inpu
 
 # Training parameters
 tf.flags.DEFINE_integer("batch_size", 128, "Batch Size (default: 64)")
-tf.flags.DEFINE_integer("num_epochs", 20000, "Number of training epochs (default: 200)")
+tf.flags.DEFINE_integer("num_epochs", 11, "Number of training epochs (default: 200)")
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
@@ -90,10 +90,10 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
 
     with tf.Graph().as_default():
 
-        print("Loading Embedding model...")
-        model = gensim.models.KeyedVectors.load_word2vec_format('./GoogleNews-vectors-negative300.bin', binary=True)
-        print("Embedding model loaded.")
-
+        if FLAGS.input_embedded_data:
+            print("Loading Embedding model...")
+            model = gensim.models.KeyedVectors.load_word2vec_format('./GoogleNews-vectors-negative300.bin', binary=True)
+            print("Embedding model loaded.")
 
         session_conf = tf.ConfigProto(
           allow_soft_placement=FLAGS.allow_soft_placement,
@@ -215,14 +215,17 @@ def train(x_train, y_train, vocab_processor, x_dev, y_dev):
                             continue
                 return allEmbedded
 
-            x_dev = embedding_step(x_dev)
+            if FLAGS.input_embedded_data:
+                x_dev = embedding_step(x_dev)
+
             # Generate batches
             batches = data_helpers.batch_iter(
                 list(zip(x_train, y_train)), FLAGS.batch_size, FLAGS.num_epochs)
             # Training loop. For each batch...
             for batch in batches:
                 x_batch, y_batch = zip(*batch)
-                x_batch = embedding_step(x_batch)
+                if FLAGS.input_embedded_data:
+                    x_batch = embedding_step(x_batch)
                 train_step(x_batch, y_batch)
                 current_step = tf.train.global_step(sess, global_step)
                 if current_step % FLAGS.evaluate_every == 0:

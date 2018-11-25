@@ -15,16 +15,16 @@ import sys
 # ==================================================
 
 # Data Parameters
-#tf.flags.DEFINE_string("positive_data_folder", "./dataset_moviereviews/backtrack_eval_reviews/pos", "Data source for the positive data.")
-#tf.flags.DEFINE_string("negative_data_folder", "./dataset_moviereviews/backtrack_eval_reviews/neg", "Data source for the negative data.")
-tf.flags.DEFINE_string("positive_data_folder", "./dataset_moviereviews/aclImdb/test/pos", "Data source for the positive data.")
-tf.flags.DEFINE_string("negative_data_folder", "./dataset_moviereviews/aclImdb/test/neg", "Data source for the negative data.")
+tf.flags.DEFINE_string("positive_data_folder", "./dataset_moviereviews/backtrack_eval_reviews/pos", "Data source for the positive data.")
+tf.flags.DEFINE_string("negative_data_folder", "./dataset_moviereviews/backtrack_eval_reviews/neg", "Data source for the negative data.")
+# tf.flags.DEFINE_string("positive_data_folder", "./dataset_moviereviews/aclImdb/test/pos", "Data source for the positive data.")
+# tf.flags.DEFINE_string("negative_data_folder", "./dataset_moviereviews/aclImdb/test/neg", "Data source for the negative data.")
 
 # Eval Parameters
 tf.flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
-tf.flags.DEFINE_string("checkpoint_dir", "runs/1535298694/checkpoints", "Checkpoint directory from training run")
+tf.flags.DEFINE_string("checkpoint_dir", "runs/addedtrainingdata/checkpoints", "Checkpoint directory from training run")
 tf.flags.DEFINE_boolean("dummy_data", False, "Use one Dummy sentence instead of the specified data")
-tf.flags.DEFINE_boolean("do_backtracking", False, "Perform the backtracking for classification understanding")
+tf.flags.DEFINE_boolean("do_backtracking", True, "Perform the backtracking for classification understanding")
 tf.flags.DEFINE_string("filter_sizes", "3,4,5", "Comma-separated filter sizes (default: '3,4,5')")
 tf.flags.DEFINE_integer("num_filters", 128, "Number of filters per filter size (default: 128)")
 tf.flags.DEFINE_integer("num_class",2,"Number of classification classes")
@@ -44,6 +44,10 @@ FLAGS = tf.flags.FLAGS
 # for attr, value in sorted(FLAGS.__flags.items()):
 #     print("{}={}".format(attr.upper(), value))
 # print("")
+def sigmoid(inputs):
+    sigmoid_scores = [1 / float(1 + np.exp(- x)) for x in inputs]
+    return sigmoid_scores
+
 def calculate_backtrack_fcl(iim,v,w):
     new_iim = np.zeros([len(v),FLAGS.num_class])
     for i in range(len(new_iim)):
@@ -124,8 +128,12 @@ def create_output_string(dim,sentence,scores):
                 result += "(neg:" + str(dim[i,0]) + ") "
     return result
 
-def create_output_header(sentence, scores):
-    return [sentence, "score pos:",str(scores[0,1]),"score neg: ",str(scores[0,0])]
+def create_output_header(sentence, scores, pred):
+    if(pred == 1):
+        cla = "pos"
+    else:
+        cla = "neg"
+    return [sentence, "score pos:",str(scores[1]),"score neg: ",str(scores[0]), "actual class:", cla]
 
 # CHANGE THIS: Load data. Load your own data here
 if FLAGS.dummy_data:
@@ -186,7 +194,7 @@ with graph.as_default():
         predictions = graph.get_operation_by_name("output/predictions").outputs[0]
 
         if FLAGS.do_backtracking:
-            
+            batch_counter = 0
             output = []
             # Load flags
             filter_sizes = list(map(int, FLAGS.filter_sizes.split(",")))
@@ -207,7 +215,9 @@ with graph.as_default():
                 scores,concat_v,output_w,emb_v = sess.run((scores_tensor,concat_v_tensor,output_w_tensor,embedding_v_tensor), {input_x: x_test_batch, dropout_keep_prob: 1.0})
                 relu_v = [sess.run(relu_v_tensor ,{input_x: x_test_batch, dropout_keep_prob: 1.0}) for relu_v_tensor in relu_v_tensors]
                 conv_w = [sess.run(conv_w_tensor ,{input_x: x_test_batch, dropout_keep_prob: 1.0}) for conv_w_tensor in conv_w_tensors]
-                iim = [[scores[0,0],0],[0,scores[0,1]]]
+                scores = scores[0]
+                print(str(scores))
+                iim = [[1,0],[0,1]]
                 iim = calculate_backtrack_fcl(iim,concat_v[0],output_w)
                 iim,pooling_v = calculate_backtrack_concat(iim,concat_v[0],fnum,n)
                 iim = calculate_backtrack_max_pool(iim,pooling_v,relu_v)
@@ -226,10 +236,11 @@ with graph.as_default():
                 neg = [str(word[0]) for word in dim]
                 pos = [str(word[1]) for word in dim]
 
-                output.append(create_output_header(x_raw[0],scores))
+                output.append(create_output_header(x_raw[batch_counter],scores,y_test[batch_counter]))
                 output.append(["Words:"]+sentence)
                 output.append(["pos:"]+pos)
                 output.append(["neg:"]+neg)
+                batch_counter = batch_counter+1
 
             # Save the evaluation to a txt
             out_path = os.path.join(FLAGS.checkpoint_dir, "..", "backtracked_prediction3.csv")

@@ -63,24 +63,21 @@ def calculate_backtrack_concat(iim,v,fnum,n):
 
 def calculate_backtrack_max_pool(iim,pooling_v,conv_v):
     result = []
-    #print(str(iim[0]))
-    for n in range(len(conv_v)):
+
+    for n in range(len(conv_v)): # filter sets
         counter = 0
         print(str(conv_v[n].shape))
         new_iim = np.zeros([len(conv_v[n][0]),len(conv_v[n][0,0,0]),FLAGS.num_class])
-        for i in range(len(conv_v[n][0])):
-            for j in range(len(new_iim[0])):
+        for i in range(len(conv_v[n][0])): # conv steps
+            for j in range(len(new_iim[0])): # filter
                 if pooling_v[n,j] == conv_v[n][0,i,0,j]:
-                    #print("filterset:"+str(n)+" row:"+str(i)+", filter:"+str(j))
                     new_iim[i,j] = iim[n,j]
                     counter += 1
-        #print(str(new_iim))
-        print(str(counter))
+        
         result.append(new_iim)
     return result
 
 def calculate_backtrack_single_conv(iim,v,w):
-    #print(str(iim[6]))
     new_iim = np.zeros([len(v),len(v[0]),FLAGS.num_class])
     len_w = len(w)
     for i in range(len(new_iim)): # words
@@ -94,7 +91,7 @@ def calculate_backtrack_single_conv(iim,v,w):
 
 def calculate_backtrack_conv(iim,v,w):
     new_iim = []
-    for n in range(len(iim)):
+    for n in range(len(iim)): # filter sets
         new_iim.append(calculate_backtrack_single_conv(iim[n],v[0],w[n]))
     return new_iim
 
@@ -105,15 +102,6 @@ def sum_embedding(iim):
             for c in range(len(iim[0,0])):
                 new_iim[i,c] += iim[i,j,c]
     return new_iim
-
-def normalize_matrix(iim):
-    # maximum = np.amax(iim)
-    # minimum = np.amin(iim)
-    # iim = (iim-minimum)/(maximum-minimum)
-    # maximum_row_sum = max(sum([row[0] for row in iim]),sum([row[1] for row in iim]))
-    # print(str(maximum_row_sum))
-    # iim = iim/maximum_row_sum
-    return iim
 
 def create_output_string(dim,sentence,scores):
     dimsum_neg = sum([row[0] for row in dim])
@@ -193,15 +181,14 @@ with graph.as_default():
         # Tensors we want to evaluate
         predictions = graph.get_operation_by_name("output/predictions").outputs[0]
 
-        if FLAGS.do_backtracking:
+        if FLAGS.do_backtracking: # do the backtracking from the paper "What does my classifier learn?"
             batch_counter = 0
             output = []
-            # Load flags
             filter_sizes = list(map(int, FLAGS.filter_sizes.split(",")))
             n = len(filter_sizes)
-            fnum = FLAGS.num_filters
-            # Generate batches for one epoch    
-            batches = data_helpers.batch_iter(list(x_test), 1, 1, shuffle=False)
+            fnum = FLAGS.num_filters  
+            # only use 1 data point per batch to reduce the backtrack algorithm complexity
+            batches = data_helpers.batch_iter(list(x_test), 1, 1, shuffle=False) 
             scores_tensor = graph.get_operation_by_name("output/scores").outputs[0]
             concat_v_tensor = graph.get_tensor_by_name("h_pool:0")
             output_w_tensor = graph.get_tensor_by_name("W:0")
@@ -216,22 +203,21 @@ with graph.as_default():
                 relu_v = [sess.run(relu_v_tensor ,{input_x: x_test_batch, dropout_keep_prob: 1.0}) for relu_v_tensor in relu_v_tensors]
                 conv_w = [sess.run(conv_w_tensor ,{input_x: x_test_batch, dropout_keep_prob: 1.0}) for conv_w_tensor in conv_w_tensors]
                 scores = scores[0]
-                print(str(scores))
                 iim = [[1,0],[0,1]]
                 iim = calculate_backtrack_fcl(iim,concat_v[0],output_w)
                 iim,pooling_v = calculate_backtrack_concat(iim,concat_v[0],fnum,n)
                 iim = calculate_backtrack_max_pool(iim,pooling_v,relu_v)
                 iim = calculate_backtrack_conv(iim,emb_v,conv_w)
                 iim = sum(iim)
-                iim = sum_embedding(iim)
-                dim = normalize_matrix(iim)
+                dim = sum_embedding(iim)
 
                 if FLAGS.input_embedded_data:
                     x_text.extend(["" for i in range(FLAGS.max_input_size - len(x_text[0]))])
                     sentence = x_text
                 else:
-                    blub = x_test_batch[0].reshape([-1,1])
-                    sentence = list(vocab_processor.reverse(blub))
+                    # reverse the embedding to know what words are unknown by the vocab
+                    embeddings = x_test_batch[0].reshape([-1,1])
+                    sentence = list(vocab_processor.reverse(embeddings))
 
                 neg = [str(word[0]) for word in dim]
                 pos = [str(word[1]) for word in dim]
@@ -242,7 +228,7 @@ with graph.as_default():
                 output.append(["neg:"]+neg)
                 batch_counter = batch_counter+1
 
-            # Save the evaluation to a txt
+            # Save the evaluation to a csv
             out_path = os.path.join(FLAGS.checkpoint_dir, "..", "backtracked_prediction3.csv")
             print("Saving evaluation to {0}".format(out_path))
 
